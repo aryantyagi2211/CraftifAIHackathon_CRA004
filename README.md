@@ -14,7 +14,9 @@ Requirement -> Pipeline IR -> Model -> Compiler -> Run.
 - Outputs: output/metadata.json (per-frame objects with tracker id, label, confidence, bbox) and output/output.mp4
 
 ## Evidence
+<img width="906" height="932" alt="pipeline_ir_graph" src="https://github.com/user-attachments/assets/4cac7d70-f571-4192-8805-68cd4c3a1e1d" />
 - evidence/pipeline_ir_graph.png: Pipeline IR node graph
+<img width="960" height="1020" alt="tensorrt_speed_report" src="https://github.com/user-attachments/assets/e3f2f1b7-108c-4480-aa8c-9d86cf60bb3c" />
 - evidence/tensorrt_speed_report.png: PipeGen TensorRT speed report
 - Model-only benchmark (PipeGen): 8.289 ms/frame, about 121 fps, FP16, GTX 1650 4GB
 - Full pipeline run: 340 frames, 1,622 detections, about 6.95 s (about 49 fps end to end)
