@@ -1,0 +1,150 @@
+{
+  "blocks": [
+    {
+      "name": "Input / Stem",
+      "operations": "Input cast + stride-2 Conv + SiLU",
+      "precision": "FP16",
+      "time_ms": 0.625673,
+      "pct": 7.64,
+      "start_index": 0,
+      "end_index": 6,
+      "layer_count": 7
+    },
+    {
+      "name": "Backbone stage 1 (P2 downsample to 160x160)",
+      "operations": "Stride-2 Conv + C2f block (1 bottleneck)",
+      "precision": "FP16",
+      "time_ms": 1.325233,
+      "pct": 16.19,
+      "start_index": 7,
+      "end_index": 16,
+      "layer_count": 10
+    },
+    {
+      "name": "Backbone stage 2 (P3 downsample to 80x80)",
+      "operations": "Stride-2 Conv + C2f block (2 bottlenecks)",
+      "precision": "FP16",
+      "time_ms": 0.758545,
+      "pct": 9.27,
+      "start_index": 17,
+      "end_index": 31,
+      "layer_count": 15
+    },
+    {
+      "name": "Backbone stage 3 (P4 downsample to 40x40)",
+      "operations": "Stride-2 Conv + C2f block (2 bottlenecks)",
+      "precision": "Mixed FP16/FP32",
+      "time_ms": 0.58724,
+      "pct": 7.17,
+      "start_index": 32,
+      "end_index": 46,
+      "layer_count": 15
+    },
+    {
+      "name": "Backbone stage 4 (P5 downsample to 20x20)",
+      "operations": "Stride-2 Conv + C2f block (1 bottleneck)",
+      "precision": "Mixed FP16/FP32",
+      "time_ms": 0.43281,
+      "pct": 5.29,
+      "start_index": 47,
+      "end_index": 58,
+      "layer_count": 12
+    },
+    {
+      "name": "Backbone SPPF spatial pyramid pooling",
+      "operations": "1x1 Conv + 3x MaxPool pyramid + Conv",
+      "precision": "FP16",
+      "time_ms": 0.249415,
+      "pct": 3.05,
+      "start_index": 59,
+      "end_index": 66,
+      "layer_count": 8
+    },
+    {
+      "name": "Neck upsample P5->P4 and fuse",
+      "operations": "Upsample + concat with P4 + C2f",
+      "precision": "FP16",
+      "time_ms": 0.40439,
+      "pct": 4.94,
+      "start_index": 67,
+      "end_index": 79,
+      "layer_count": 13
+    },
+    {
+      "name": "Neck upsample P4->P3 and fuse",
+      "operations": "Upsample + concat with P3 + C2f",
+      "precision": "FP16",
+      "time_ms": 0.525397,
+      "pct": 6.42,
+      "start_index": 80,
+      "end_index": 88,
+      "layer_count": 9
+    },
+    {
+      "name": "Neck downsample P3->P4 and fuse",
+      "operations": "Stride-2 Conv + concat with lateral + C2f",
+      "precision": "FP16",
+      "time_ms": 0.351263,
+      "pct": 4.29,
+      "start_index": 89,
+      "end_index": 98,
+      "layer_count": 10
+    },
+    {
+      "name": "Neck downsample P4->P5 and fuse",
+      "operations": "Stride-2 Conv + concat with lateral + C2f",
+      "precision": "FP16",
+      "time_ms": 0.360439,
+      "pct": 4.4,
+      "start_index": 99,
+      "end_index": 107,
+      "layer_count": 9
+    },
+    {
+      "name": "Head P5 box/class conv towers",
+      "operations": "Shared Conv then box and cls conv heads",
+      "precision": "Mixed FP16/FP32",
+      "time_ms": 0.419542,
+      "pct": 5.12,
+      "start_index": 108,
+      "end_index": 121,
+      "layer_count": 14
+    },
+    {
+      "name": "Head P4 box/class conv towers",
+      "operations": "Shared Conv then box and cls conv heads",
+      "precision": "Mixed FP16/FP32",
+      "time_ms": 0.554346,
+      "pct": 6.77,
+      "start_index": 122,
+      "end_index": 139,
+      "layer_count": 18
+    },
+    {
+      "name": "Head P3 box/class conv towers",
+      "operations": "Shared Conv then box and cls conv heads",
+      "precision": "FP16",
+      "time_ms": 1.493715,
+      "pct": 18.25,
+      "start_index": 140,
+      "end_index": 168,
+      "layer_count": 29
+    },
+    {
+      "name": "DFL and box decode postprocessing",
+      "operations": "DFL softmax + conv, sigmoid and box transform",
+      "precision": "Mixed FP16/FP32",
+      "time_ms": 0.098784,
+      "pct": 1.21,
+      "start_index": 169,
+      "end_index": 171,
+      "layer_count": 3
+    }
+  ],
+  "source": "reasoner",
+  "architecture": "YOLOv8-like object detector: CSPDarknet-style backbone + PAN/FPN neck + decoupled heads with DFL distance regression and post-sigmoid box transform",
+  "total_ms": 8.186791,
+  "layer_count": 172,
+  "warnings": [],
+  "fingerprint": "172:8.187:/model.22/Constant_12_output_0:Reformatting CopyNode for Output Tensor 0 to PWN(/model.22/Sigmoid)"
+}

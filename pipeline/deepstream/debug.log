@@ -1,0 +1,8 @@
+
+==============================================================================
+[2026-10-18T09:32:11+00:00] run.debug.sh FAILED (attempt 1/4)
+------------------------------------------------------------------------------
+pipeline never reached PLAYING (preroll/negotiation failure, or a blocking call before PLAYING):
+…t)1920, height=(int)1080, multiview-mode=(string)mono, multiview-flags=(GstVideoMultiviewFlagsSet)0:ffffffff:/right-view-first/left-flipped/left-flopped/right-flipped/right-flopped/half-aspect/mixed-mono, framerate=(fraction)30/1, format=(string)NV12, block-linear=(boolean)false, nvbuf-memory-type=(string)nvbuf-mem-cuda-device, gpu-id=(int)0, batch-size=(int)1, num-surfaces-per-frame=(int)1
+[HelmetDet] first call: layer=output0 numDims=2 networkInput=640x640 numClasses=3 outputs=1
+[meta_json] file -> /home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/output/metadata.json

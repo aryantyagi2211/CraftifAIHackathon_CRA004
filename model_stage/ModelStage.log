@@ -1,0 +1,11 @@
+# PipeGen model stage — aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05
+# UTC                   step             outcome  fact
+2026-10-18T09:20:08Z  visualize        start    Checking every node against the TensorRT parser…
+2026-10-18T09:20:34Z  visualize        ok       262 nodes · 0 unresolved
+2026-10-18T09:21:31Z  compile          start    Compiling the model with TensorRT at FP16…
+2026-10-18T09:21:41Z  visualize        ok       262 nodes · 0 unresolved
+2026-10-18T09:22:19Z  choice           user     selected_artifact=baseline
+2026-10-18T09:22:19Z  choice           user     optimization_decision=
+2026-10-18T09:22:19Z  compile          warning  fp16 · 172 TRT layers · 7.7 MB
+2026-10-18T09:23:21Z  benchmark        start    Benchmarking the compiled engine on this device…
+2026-10-18T09:23:30Z  engine           ok       8.289 ms mean

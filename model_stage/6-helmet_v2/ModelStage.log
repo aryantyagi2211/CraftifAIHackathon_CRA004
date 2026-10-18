@@ -1,0 +1,9 @@
+# PipeGen model stage — aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05 · 6-helmet_v2
+# UTC                   step             outcome  fact
+2026-10-18T09:28:03Z  visualize        start    Checking every node against the TensorRT parser…
+2026-10-18T09:28:12Z  visualize        ok       262 nodes · 0 unresolved
+2026-10-18T09:28:37Z  compile          start    Compiling the model with TensorRT at FP16…
+2026-10-18T09:28:45Z  visualize        ok       262 nodes · 0 unresolved
+2026-10-18T09:29:14Z  choice           user     selected_artifact=baseline
+2026-10-18T09:29:14Z  choice           user     optimization_decision=
+2026-10-18T09:29:14Z  compile          warning  fp16 · 171 TRT layers · 7.3 MB

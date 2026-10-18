@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "steps": {
+    "visualize": {
+      "step": "visualize",
+      "status": "ok",
+      "summary": "264 graph nodes \u00b7 0 unresolved TensorRT node(s)",
+      "detail": "",
+      "data": {
+        "_data_file": "/home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/model_stage/visualize.data.json"
+      },
+      "warnings": [],
+      "artifacts": {},
+      "recorded_at": 1792315301.1264172
+    },
+    "compile": {
+      "step": "compile",
+      "status": "warning",
+      "summary": "FP16 engine built in 28.8s \u2014 172 TRT layers, 7.7 MB.",
+      "detail": "**helmet_v2.onnx \u2192 helmet_v2.fp16.plan**  \u00b7  TensorRT 10.3.0\n\nThe engine is on disk and this is the file that gets deployed. Nothing has been run yet, so none of this is a speed measurement \u2014 the build time above is how long it took to CREATE, not how fast it goes.\n\n**Asked for FP16, but the engine is mixed:** FP16 149 \u00b7 FP32 23.\n\nTensorRT falls back when a layer has no kernel at the precision you asked for. This is the usual reason a speed-up comes in smaller than expected \u2014 the layers that fell back are still running at the slower format.\n\n**Layout conversion \u2014 45% of layers**\n\n77 of 172 layers do no maths. They only rearrange data so the next layer can read it.\n\nAround 8% is normal at FP32. What this number is really for is comparing two builds of the SAME model: a jump after a precision change is the cost of extra shuffling, not a worse choice of kernel. At 45% a large share of this engine is moving data rather than computing \u2014 worth comparing against another precision before concluding the model is simply expensive.\n\n**What the engine is made of**\n\n| Kind | Count | What it does |\n|---|---:|---|\n| Reformat | 77 | layout/precision conversion \u2014 overhead, not maths |\n| CaskConvolution | 61 | convolutions |\n| PointWiseV2 | 13 | elementwise maths, fused |\n| NoOp | 10 | removed entirely |\n| Constant | 3 | \u2014 |\n| CaskPooling | 3 | \u2014 |\n| Resize | 2 | resizing |\n| Shuffle | 2 | reshapes and transposes |\n| CaskSoftMaxV2 | 1 | \u2014 |\n\nThese are TensorRT's own kernel families, after it merged what it could \u2014 which is why the count does not match the ONNX node count.",
+      "data": {
+        "_data_file": "/home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/model_stage/compile.data.json"
+      },
+      "warnings": [
+        "First build on this GPU, so every kernel had to be timed (29s). The timings are now cached; rebuilding this model after surgery or quantization will be far quicker."
+      ],
+      "artifacts": {
+        "engine": "/home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/model_stage/helmet_v2.fp16.plan"
+      },
+      "recorded_at": 1792315339.0596473
+    },
+    "engine": {
+      "step": "engine",
+      "status": "ok",
+      "summary": "FP16 engine: 8.289 ms/frame \u00b7 ~121 fps \u00b7 36.28 W",
+      "detail": "**helmet_v2.fp16.plan** (TensorRT 10.3.0, FP16)\n\n| Measurement | Value | Source |\n|---|---:|---|\n| Frame time (end to end) | 8.289 ms | trtexec |\n| GPU compute only | 7.463 ms | trtexec |\n| Host\u2194device transfer | 0.826 ms | derived |\n| Summed layer time | 8.187 ms | /home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/model_stage/helmet_v2.fp16.runtime.profile.json |\n| Profiling overhead | 1.10\u00d7 | summed layers \u00f7 GPU compute |\n| Throughput | ~121 fps | derived |\n| Power | 36.28 W | nvidia-smi |\n\n**Precision TensorRT actually chose**\n\n| Precision | Layers |\n|---|---:|\n| FP16 | 149 |\n| FP32 | 23 |\n\n**Selected tactics**\n\n| Tactic | Count |\n|---|---:|\n| 0x00000000000003e8 | 77 |\n| 0x0000000000000000 | 29 |\n| 0x250c3051a8abd397 | 22 |\n| 0xa3b19d2672398294 | 10 |\n| 0xd7d66d5d03a72c4e | 9 |\n| 0x473c54cd9e14c081 | 7 |\n| 0x04c1e97545931d9e | 3 |\n| 0x18597bd4a7d0164d | 3 |\n| 0xd74356270b3a903a | 3 |\n| 0x457fb0a334d63ae2 | 2 |\n| 0xe5d2e0b7eb36a2c4 | 1 |\n| 0x90238daf8750ddb0 | 1 |\n\nTactic/runtime/power values are separated by provenance; per-layer power is not claimed from whole-engine telemetry.\n\n---\n\n**helmet_v2.onnx** on **Jetson Orin NX 16GB** (fp16, 15W)\n\n| Metric | Value |\n|---|---|\n| Latency / frame | 2.07 ms |\n| Throughput | ~483 fps |\n| Energy / frame | 22092.2 \u00b5J |\n| Operation power | 10.68 W |\n| Steady-state temperature rise | +16.02 \u00b0C |\n| Units profiled | 211 / 218 (97%) |\n\n**Time by family**\n\n| Family | ms | share |\n|---|---:|---:|\n| elementwise | 1.267 | 61% |\n| compute | 0.745 | 36% |\n| resize | 0.030 | 1% |\n| norm | 0.021 | 1% |\n| pool | 0.006 | 0% |\n\n**Hotspots**\n\n| Unit | Subgraph | Algorithm | ms | share | bound |\n|---|---|---|---:|---:|---|\n| `/model.0/act/Sigmoid` | pointwise | fused_pwn | 0.064 | 3.1% | memory-bound |\n| `/model.0/act/Mul` | pointwise | fused_pwn | 0.064 | 3.1% | memory-bound |\n| `/model.0/conv/Conv` | conv_bias_act | implicit_gemm | 0.056 | 2.7% | memory-bound |\n| `/model.1/conv/Conv` | conv_bias_act | implicit_gemm | 0.048 | 2.3% | memory-bound |\n| `/model.2/cv2/conv/Conv` | pwconv_bias_act | implicit_gemm | 0.040 | 1.9% | memory-bound |\n| `/model.15/cv1/conv/Conv` | pwconv_bias_act | implicit_gemm | 0.032 | 1.6% | memory-bound |\n| `/model.2/cv1/conv/Conv` | pwconv_bias_act | implicit_gemm | 0.032 | 1.5% | memory-bound |\n| `/model.1/act/Sigmoid` | pointwise | fused_pwn | 0.032 | 1.5% | memory-bound |\n\n_Modelled (roofline over the Jetson Orin NX 16GB fact table), not measured. Use it to compare options; use the layer report for ground truth._",
+      "data": {
+        "_data_file": "/home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/model_stage/engine.data.json"
+      },
+      "warnings": [],
+      "artifacts": {
+        "engine": "/home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/model_stage/helmet_v2.fp16.plan",
+        "tactics": "/home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/model_stage/engine_tactics.json"
+      },
+      "recorded_at": 1792315410.2064342
+    }
+  },
+  "constraint": {},
+  "choices": {
+    "selected_artifact": "baseline",
+    "optimization_decision": "",
+    "quantization_preparation": {},
+    "task": "detection"
+  }
+}

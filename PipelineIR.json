@@ -1,0 +1,799 @@
+{
+  "loop": {
+    "next_file": null,
+    "next_task": null,
+    "projectTree": {},
+    "target_function": {
+      "name": "read_file",
+      "parameters": {}
+    },
+    "visited_steps": [
+      "/home/lenovo/pipegen-src/run.py",
+      "/home/lenovo/pipegen-src/helmet_v2.onnx"
+    ]
+  },
+  "pipeline_ir": {
+    "connections": [
+      [
+        "p01o_frame",
+        "p02i_frame"
+      ],
+      [
+        "p01o_frame",
+        "p04i_frame"
+      ],
+      [
+        "p01o_frame",
+        "p05i_frame"
+      ],
+      [
+        "p01o_frame",
+        "p07i_frame"
+      ],
+      [
+        "p01o_frame",
+        "p10i_frame"
+      ],
+      [
+        "p01o_meta",
+        "p08i_meta"
+      ],
+      [
+        "p02o_tensor",
+        "p03i_tensor"
+      ],
+      [
+        "p02o_geometry",
+        "p04i_geometry"
+      ],
+      [
+        "p03o_raw",
+        "p04i_raw"
+      ],
+      [
+        "p04o_candidates",
+        "p08i_candidates"
+      ],
+      [
+        "p05o_tensor",
+        "p06i_tensor"
+      ],
+      [
+        "p05o_geometry",
+        "p07i_geometry"
+      ],
+      [
+        "p06o_raw",
+        "p07i_raw"
+      ],
+      [
+        "p07o_compliance",
+        "p08i_compliance"
+      ],
+      [
+        "p08o_result",
+        "p09i_result"
+      ],
+      [
+        "p08o_result",
+        "p10i_result"
+      ]
+    ],
+    "nodes": [
+      {
+        "description": "Read every video frame and emit source timing.",
+        "id": 1,
+        "name": "file",
+        "ports": [
+          {
+            "direction": "output",
+            "format": {
+              "color": "BGR",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p01o_frame",
+            "tensor": {
+              "dtype": "uint8",
+              "shape": [
+                1080,
+                1920,
+                3
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p01o_meta",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "def frames(path):\n    import cv2\n    cap = cv2.VideoCapture(path)\n    if not cap.isOpened():\n        raise OSError(path)\n    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0\n    index = 0\n    try:\n        while True:\n            ok, frame = cap.read()\n            if not ok:\n                break\n            pts_ms = cap.get(cv2.CAP_PROP_POS_MSEC)\n            timestamp_s = pts_ms / 1000.0 if pts_ms >= 0 else index / fps\n            yield frame, {'frame_index': index, 'timestamp_s': timestamp_s, 'width': frame.shape[1], 'height': frame.shape[0]}\n            index += 1\n    finally:\n        cap.release()",
+        "resolution": [
+          1920,
+          1080
+        ],
+        "type": "input",
+        "url": "file:///home/lenovo/videos/video.mp4"
+      },
+      {
+        "color_order": "RGB",
+        "description": "Letterbox rider-branch frames and prepare RGB model tensors.",
+        "id": 2,
+        "mean": null,
+        "normalization": 0.00392156862745098,
+        "offset": null,
+        "pad_value": 114,
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": "BGR",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p02i_frame",
+            "tensor": {
+              "dtype": "uint8",
+              "shape": [
+                1080,
+                1920,
+                3
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": "RGB",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p02o_tensor",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                3,
+                640,
+                640
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p02o_geometry",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "def process(frame):\n    import cv2\n    import numpy as np\n    height, width = frame.shape[:2]\n    ratio = min(640 / height, 640 / width)\n    new_width, new_height = round(width * ratio), round(height * ratio)\n    resized = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)\n    dw, dh = 640 - new_width, 640 - new_height\n    left, right = round(dw / 2 - 0.1), round(dw / 2 + 0.1)\n    top, bottom = round(dh / 2 - 0.1), round(dh / 2 + 0.1)\n    padded = cv2.copyMakeBorder(resized, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114))\n    tensor = np.ascontiguousarray(padded[:, :, ::-1].transpose(2, 0, 1), dtype=np.float32)[None] / 255.0\n    geometry = {'width': width, 'height': height, 'ratio': ratio, 'pad_left': left, 'pad_top': top}\n    return tensor, geometry",
+        "resize": [
+          640,
+          640
+        ],
+        "resize_mode": "letterbox",
+        "scale": 0.00392156862745098,
+        "std": null,
+        "type": "preprocess"
+      },
+      {
+        "batchSize": 1,
+        "description": "Run selected detector for unverified rider-candidate observations.",
+        "id": 3,
+        "layout": "NCHW",
+        "model": {
+          "inputs": [
+            {
+              "dtype": "fp32",
+              "name": "images",
+              "shape": [
+                1,
+                3,
+                640,
+                640
+              ]
+            }
+          ],
+          "name": "helmet_v2 rider-candidate branch",
+          "outputs": [
+            {
+              "dtype": "fp32",
+              "name": "output0",
+              "shape": [
+                1,
+                7,
+                8400
+              ]
+            }
+          ],
+          "parameter_count": 3133193,
+          "type": "engine",
+          "url": "/home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/model_stage/helmet_v2.fp16.plan",
+          "source_onnx": "/home/lenovo/pipegen-src/helmet_v2.onnx"
+        },
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": "RGB",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p03i_tensor",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                3,
+                640,
+                640
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p03o_raw",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                7,
+                8400
+              ]
+            }
+          }
+        ],
+        "pseudo_code": "def infer(tensor, session):\n    raw = session.run(['output0'], {'images': tensor})[0]\n    return raw",
+        "type": "inference"
+      },
+      {
+        "description": "Decode detector boxes without claiming unsupported rider detections.",
+        "id": 4,
+        "label_file_path": null,
+        "num_classes": 3,
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p04i_raw",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                7,
+                8400
+              ]
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p04i_geometry",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": "BGR",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p04i_frame",
+            "tensor": {
+              "dtype": "uint8",
+              "shape": [
+                1080,
+                1920,
+                3
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p04o_candidates",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "def process(raw, geometry, frame, conf_thres=None, iou_thres=0.7):\n    import numpy as np\n    if conf_thres is None:\n        conf_thres = 0.25\n    labels = ('Helmet', 'LP', 'No helmet')\n    predictions = np.asarray(raw, dtype=np.float32)[0].T\n    boxes = []\n    for row in predictions:\n        class_id = int(np.argmax(row[4:7]))\n        confidence = float(row[4 + class_id])\n        if confidence < conf_thres or class_id not in (0, 2):\n            continue\n        cx, cy, w, h = map(float, row[:4])\n        ratio, px, py = geometry['ratio'], geometry['pad_left'], geometry['pad_top']\n        x1 = max(0.0, min(float(frame.shape[1]), (cx - w / 2 - px) / ratio))\n        y1 = max(0.0, min(float(frame.shape[0]), (cy - h / 2 - py) / ratio))\n        x2 = max(0.0, min(float(frame.shape[1]), (cx + w / 2 - px) / ratio))\n        y2 = max(0.0, min(float(frame.shape[0]), (cy + h / 2 - py) / ratio))\n        if x2 > x1 and y2 > y1:\n            boxes.append({'bbox_xyxy': [x1, y1, x2, y2], 'score': confidence, 'class_id': class_id, 'label': labels[class_id]})\n    def iou(a, b):\n        ax1, ay1, ax2, ay2 = a\n        bx1, by1, bx2, by2 = b\n        intersection = max(0.0, min(ax2, bx2) - max(ax1, bx1)) * max(0.0, min(ay2, by2) - max(ay1, by1))\n        area_a = (ax2 - ax1) * (ay2 - ay1)\n        area_b = (bx2 - bx1) * (by2 - by1)\n        return intersection / (area_a + area_b - intersection + 1e-9)\n    kept = []\n    for box in sorted(boxes, key=lambda item: item['score'], reverse=True):\n        if all(box['class_id'] != prior['class_id'] or iou(box['bbox_xyxy'], prior['bbox_xyxy']) <= iou_thres for prior in kept):\n            kept.append(box)\n    return {'candidates': kept, 'rider_detection_supported': False, 'limitation': 'The selected model detects Helmet and No helmet, not riders; these are head-class candidates only.'}",
+        "task": "detection",
+        "threshold": null,
+        "top_items": null,
+        "type": "postprocess"
+      },
+      {
+        "color_order": "RGB",
+        "description": "Independently letterbox compliance frames into RGB model tensors.",
+        "id": 5,
+        "mean": null,
+        "normalization": 0.00392156862745098,
+        "offset": null,
+        "pad_value": 114,
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": "BGR",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p05i_frame",
+            "tensor": {
+              "dtype": "uint8",
+              "shape": [
+                1080,
+                1920,
+                3
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": "RGB",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p05o_tensor",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                3,
+                640,
+                640
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p05o_geometry",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "def process(frame):\n    import cv2\n    import numpy as np\n    height, width = frame.shape[:2]\n    ratio = min(640 / height, 640 / width)\n    new_width, new_height = round(width * ratio), round(height * ratio)\n    resized = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)\n    dw, dh = 640 - new_width, 640 - new_height\n    left, right = round(dw / 2 - 0.1), round(dw / 2 + 0.1)\n    top, bottom = round(dh / 2 - 0.1), round(dh / 2 + 0.1)\n    padded = cv2.copyMakeBorder(resized, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114))\n    tensor = np.ascontiguousarray(padded[:, :, ::-1].transpose(2, 0, 1), dtype=np.float32)[None] / 255.0\n    geometry = {'width': width, 'height': height, 'ratio': ratio, 'pad_left': left, 'pad_top': top}\n    return tensor, geometry",
+        "resize": [
+          640,
+          640
+        ],
+        "resize_mode": "letterbox",
+        "scale": 0.00392156862745098,
+        "std": null,
+        "type": "preprocess"
+      },
+      {
+        "batchSize": 1,
+        "description": "Run independent Helmet and No helmet detection inference.",
+        "id": 6,
+        "layout": "NCHW",
+        "model": {
+          "inputs": [
+            {
+              "dtype": "fp32",
+              "name": "images",
+              "shape": [
+                1,
+                3,
+                640,
+                640
+              ]
+            }
+          ],
+          "name": "helmet_v2 compliance branch",
+          "outputs": [
+            {
+              "dtype": "fp32",
+              "name": "output0",
+              "shape": [
+                1,
+                7,
+                8400
+              ]
+            }
+          ],
+          "parameter_count": 3133193,
+          "type": "engine",
+          "url": "/home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/model_stage/6-helmet_v2/helmet_v2.fp16.plan",
+          "source_onnx": "/home/lenovo/pipegen-src/helmet_v2.onnx"
+        },
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": "RGB",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p06i_tensor",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                3,
+                640,
+                640
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p06o_raw",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                7,
+                8400
+              ]
+            }
+          }
+        ],
+        "pseudo_code": "def infer(tensor, session):\n    raw = session.run(['output0'], {'images': tensor})[0]\n    return raw",
+        "type": "inference"
+      },
+      {
+        "description": "Decode supported helmet classes into original-frame bounding boxes.",
+        "id": 7,
+        "label_file_path": null,
+        "num_classes": 3,
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p07i_raw",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                7,
+                8400
+              ]
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p07i_geometry",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": "BGR",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p07i_frame",
+            "tensor": {
+              "dtype": "uint8",
+              "shape": [
+                1080,
+                1920,
+                3
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p07o_compliance",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "def process(raw, geometry, frame, conf_thres=None, iou_thres=0.7):\n    import numpy as np\n    if conf_thres is None:\n        conf_thres = 0.25\n    labels = ('Helmet', 'LP', 'No helmet')\n    predictions = np.asarray(raw, dtype=np.float32)[0].T\n    boxes = []\n    for row in predictions:\n        class_id = int(np.argmax(row[4:7]))\n        confidence = float(row[4 + class_id])\n        if confidence < conf_thres or class_id not in (0, 2):\n            continue\n        cx, cy, w, h = map(float, row[:4])\n        ratio, px, py = geometry['ratio'], geometry['pad_left'], geometry['pad_top']\n        x1 = max(0.0, min(float(frame.shape[1]), (cx - w / 2 - px) / ratio))\n        y1 = max(0.0, min(float(frame.shape[0]), (cy - h / 2 - py) / ratio))\n        x2 = max(0.0, min(float(frame.shape[1]), (cx + w / 2 - px) / ratio))\n        y2 = max(0.0, min(float(frame.shape[0]), (cy + h / 2 - py) / ratio))\n        if x2 > x1 and y2 > y1:\n            boxes.append({'bbox_xyxy': [x1, y1, x2, y2], 'score': confidence, 'class_id': class_id, 'label': labels[class_id]})\n    def iou(a, b):\n        ax1, ay1, ax2, ay2 = a\n        bx1, by1, bx2, by2 = b\n        intersection = max(0.0, min(ax2, bx2) - max(ax1, bx1)) * max(0.0, min(ay2, by2) - max(ay1, by1))\n        area_a = (ax2 - ax1) * (ay2 - ay1)\n        area_b = (bx2 - bx1) * (by2 - by1)\n        return intersection / (area_a + area_b - intersection + 1e-9)\n    kept = []\n    for box in sorted(boxes, key=lambda item: item['score'], reverse=True):\n        if all(box['class_id'] != prior['class_id'] or iou(box['bbox_xyxy'], prior['bbox_xyxy']) <= iou_thres for prior in kept):\n            kept.append(box)\n    return {'detections': kept}",
+        "task": "detection",
+        "threshold": null,
+        "top_items": null,
+        "type": "postprocess"
+      },
+      {
+        "category": "tracking",
+        "description": "Associate helmet-class candidates across frames using bounding-box IoU.",
+        "external_assets": [],
+        "id": 8,
+        "inputs": [
+          "bbox",
+          "bbox",
+          "source metadata"
+        ],
+        "name": "rider tracking",
+        "outputs": [
+          "per-frame candidate tracks and events"
+        ],
+        "parameters": {
+          "association_iou_threshold": 0.3,
+          "compliance_match_iou_threshold": 0.5,
+          "max_missed_frames": 30,
+          "notes": "IDs identify tracked helmet-class candidates, not verified riders; rider_id remains null."
+        },
+        "placement": {
+          "attach_point": null,
+          "position": "post_nn"
+        },
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p08i_candidates",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p08i_compliance",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p08i_meta",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p08o_result",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "class Tracker:\n    def __init__(self, association_iou_threshold=0.3, compliance_match_iou_threshold=0.5, max_missed_frames=30):\n        self.tracks = {}\n        self.next_id = 1\n        self.association_iou_threshold = association_iou_threshold\n        self.compliance_match_iou_threshold = compliance_match_iou_threshold\n        self.max_missed_frames = max_missed_frames\n\n    @staticmethod\n    def iou(a, b):\n        ax1, ay1, ax2, ay2 = a\n        bx1, by1, bx2, by2 = b\n        intersection = max(0.0, min(ax2, bx2) - max(ax1, bx1)) * max(0.0, min(ay2, by2) - max(ay1, by1))\n        area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)\n        area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)\n        return intersection / (area_a + area_b - intersection + 1e-9)\n\n    def process(self, candidate_record, compliance_record, source_meta):\n        candidates = candidate_record['candidates']\n        detections = compliance_record['detections']\n        pairs = []\n        for track_id, track in self.tracks.items():\n            for candidate_index, candidate in enumerate(candidates):\n                overlap = self.iou(track['bbox_xyxy'], candidate['bbox_xyxy'])\n                if overlap >= self.association_iou_threshold:\n                    pairs.append((overlap, track_id, candidate_index))\n        assigned_tracks, assigned_candidates, assignments = set(), set(), {}\n        for overlap, track_id, candidate_index in sorted(pairs, reverse=True):\n            if track_id not in assigned_tracks and candidate_index not in assigned_candidates:\n                assigned_tracks.add(track_id)\n                assigned_candidates.add(candidate_index)\n                assignments[candidate_index] = track_id\n        for track_id, track in list(self.tracks.items()):\n            if track_id not in assigned_tracks:\n                track['missed'] += 1\n                if track['missed'] > self.max_missed_frames:\n                    del self.tracks[track_id]\n        for candidate_index, candidate in enumerate(candidates):\n            if candidate_index not in assignments:\n                track_id = self.next_id\n                self.next_id += 1\n                self.tracks[track_id] = {'bbox_xyxy': candidate['bbox_xyxy'], 'missed': 0}\n                assignments[candidate_index] = track_id\n            track = self.tracks[assignments[candidate_index]]\n            track['bbox_xyxy'] = candidate['bbox_xyxy']\n            track['missed'] = 0\n        used_detections = set()\n        events = []\n        for candidate_index, candidate in enumerate(candidates):\n            matches = [(self.iou(candidate['bbox_xyxy'], detection['bbox_xyxy']), j) for j, detection in enumerate(detections) if j not in used_detections]\n            overlap, match_index = max(matches, default=(0.0, -1))\n            detection = detections[match_index] if overlap >= self.compliance_match_iou_threshold else None\n            if detection is not None:\n                used_detections.add(match_index)\n            status = ('helmet' if detection['label'] == 'Helmet' else 'no helmet') if detection is not None else 'unknown'\n            events.append({'rider_id': None, 'candidate_id': assignments[candidate_index], 'rider_verified': False, 'helmet_status': status, 'timestamp_s': source_meta['timestamp_s'], 'frame_index': source_meta['frame_index'], 'bbox_xyxy': candidate['bbox_xyxy'], 'confidence': detection['score'] if detection is not None else None})\n        return {'frame_index': source_meta['frame_index'], 'timestamp_s': source_meta['timestamp_s'], 'events': events, 'rider_detection_supported': False, 'limitation': candidate_record['limitation']}",
+        "reference_path": null,
+        "runs_every_frame": true,
+        "state_key": "global",
+        "triggers": [],
+        "type": "custom"
+      },
+      {
+        "description": "Save timestamped candidate events with explicit rider limitation.",
+        "grid": null,
+        "id": 9,
+        "name": "json",
+        "output_type": "single",
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p09i_result",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "def write_results(results, path):\n    import json\n    import os\n    os.makedirs(os.path.dirname(path), exist_ok=True)\n    with open(path, 'w', encoding='utf-8') as stream:\n        stream.write('{\"rider_detection_supported\":false,\"frames\":[')\n        first = True\n        for result in results:\n            if not first:\n                stream.write(',')\n            json.dump(result, stream, ensure_ascii=False, allow_nan=False)\n            first = False\n        stream.write(']}')",
+        "resolution": null,
+        "type": "output",
+        "url": "file:///home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/output/metadata.json"
+      },
+      {
+        "description": "Save annotated frames while distinguishing candidates from riders.",
+        "grid": null,
+        "id": 10,
+        "name": "file",
+        "output_type": "single",
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": "BGR",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p10i_frame",
+            "tensor": {
+              "dtype": "uint8",
+              "shape": [
+                1080,
+                1920,
+                3
+              ]
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p10i_result",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "def write_video(frame_results, path, fps=30.0):\n    import cv2\n    import os\n    os.makedirs(os.path.dirname(path), exist_ok=True)\n    writer = None\n    try:\n        for frame, result in frame_results:\n            annotated = frame.copy()\n            cv2.putText(annotated, 'Rider detection unavailable; IDs are helmet-class candidates', (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)\n            for event in result['events']:\n                x1, y1, x2, y2 = map(int, event['bbox_xyxy'])\n                color = (0, 0, 255) if event['helmet_status'] == 'no helmet' else (0, 200, 0) if event['helmet_status'] == 'helmet' else (0, 165, 255)\n                cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)\n                cv2.putText(annotated, 'Candidate {}: {}'.format(event['candidate_id'], event['helmet_status']), (x1, max(55, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)\n            if writer is None:\n                height, width = annotated.shape[:2]\n                writer = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))\n                if not writer.isOpened():\n                    raise OSError(path)\n            writer.write(annotated)\n    finally:\n        if writer is not None:\n            writer.release()",
+        "resolution": [
+          1920,
+          1080
+        ],
+        "type": "output",
+        "url": "file:///home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/output/output.mp4"
+      }
+    ]
+  }
+}

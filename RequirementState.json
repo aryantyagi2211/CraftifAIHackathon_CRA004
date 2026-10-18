@@ -1,0 +1,896 @@
+{
+  "analysis_state": {
+    "architecture": {
+      "connections": [
+        {
+          "from": "n1",
+          "to": "n2"
+        },
+        {
+          "from": "n3",
+          "to": "n4"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "n1",
+          "name": "Video file",
+          "short_description": "Requested traffic-video input."
+        },
+        {
+          "id": "n2",
+          "name": "run.py",
+          "short_description": "Existing entry script; it only prints a message and does not process the video."
+        },
+        {
+          "id": "n3",
+          "name": "helmet_v2.onnx",
+          "short_description": "Detection model expecting float32 images shaped [1, 3, 640, 640]."
+        },
+        {
+          "id": "n4",
+          "name": "Detection output",
+          "short_description": "Model output0 is [1, 7, 8400], with metadata classes Helmet, LP, and No helmet; no decoder is included."
+        }
+      ]
+    },
+    "info": {
+      "model_paths": [
+        "/home/lenovo/pipegen-src/helmet_v2.onnx"
+      ],
+      "pipeline_command": "python run.py /home/lenovo/videos/video.mp4",
+      "project_name": "pipegen-src",
+      "project_path": "/home/lenovo/pipegen-src"
+    },
+    "loop_count": 1,
+    "repo_url": "",
+    "tools_history": [
+      {
+        "result": "The repository contains an ONNX helmet-related object detector and a run.py entry script. The model expects 640×640 float32 image tensors and is labeled as an Ultralytics detection model with Helmet, LP, and No helmet classes. Its output is a raw detection tensor, and the repository provides no video-frame preprocessing, output decoder, or rider-to-detection association. The entry script only prints a message, so the supplied command does not perform inference on the video.",
+        "tool": "_summary"
+      },
+      {
+        "result": "[read_file]: run.py: print(\"helmet-guard: ONNX model entry point\")\n",
+        "tool": "read_file"
+      }
+    ]
+  },
+  "benchmark_readme": "# PipeGen Benchmark Repository\n\nThis repository is a benchmark collection for PipeGen. It gathers multiple computer vision and perception projects that cover object detection, depth estimation, semantic segmentation, and multi-modal autonomous driving perception, alongside a set of applied retail, logistics, surveillance, and workplace-safety use cases, making it a practical workspace for evaluating pipeline generation and orchestration across varied real-world AI repositories.\n\nFor model setup, each repository may include its own helper shell script such as `download.sh` in models folder, `download_models.sh`, or a similarly named downloader. Users can run the relevant script inside the target repository to fetch the required pretrained models and supporting assets before executing the pipeline. Model weights are not committed here, so running that downloader is a required first step for most folders.\n\n## Repository Overview\n\n`AbandonedObjectDetection` flags unattended luggage in surveillance footage by tracking COCO backpack/handbag/suitcase detections from an Ultralytics YOLO11s ONNX detector with a SORT-style IOU + Hungarian tracker.  \nAn object is reported as abandoned only when it stays stationary (displacement under 20% of its own box diagonal) and no person's box is within three box-diagonals of it, continuously, for `--abandoned-seconds`.  \nWithin the PipeGen benchmark collection, it contributes a security-analytics workload that layers multi-object tracking and owner-association geometry on top of a plain detector rather than a purpose-trained class.\n\n`ANPR` is an automatic number plate recognition pipeline that chains two ONNX models: a YOLOv9-t 384x384 license-plate detector with NMS baked into the graph, then a Compact Convolutional Transformer OCR head that reads 10 character slots over a 37-symbol alphabet plus a 66-way region prediction.  \nIt is a from-scratch onnxruntime implementation rather than a wrapper around the `fast_alpr` package, and `model/download.sh` fetches both weights along with the OCR alphabet/region config the recognizer cannot run without.  \nFor PipeGen benchmarking, it adds a genuinely two-stage detect-then-recognize workload where the second model consumes crops produced by the first.\n\n`Bevfusion` is a bird's-eye-view perception repository focused on fusing camera and LiDAR information for autonomous driving workloads.  \nIt likely includes model setup, pretrained checkpoint download flows, and evaluation or demo utilities for 3D scene understanding tasks.  \nAs part of this benchmark set, it represents a large multi-modal project with heavier dependencies, richer model logic, and end-to-end perception pipelines.\n\n`CheckoutMonitoring` reports per-lane checkout status from a single image or a sequence of frames, using the same Ultralytics YOLO11s COCO person detector reused across the retail use cases in this collection.  \nEach lane in `--zone-file` carries its own cashier polygon and queue polygon, and a lane resolves to OPEN - SERVING, OPEN - IDLE, CLOSED, or UNSTAFFED - QUEUE! — the last being the state a store manager actually needs surfaced.  \nWithin the PipeGen benchmark, it contributes a multi-zone rule engine over detection output, and it expects a low `--conf-threshold` because ceiling-mounted wide-angle shots make people small.\n\n`ContainerFillLevel` estimates how full a container is from one monocular image by running Depth-Anything-V2-metric through ONNX Runtime and reading the per-row median depth profile of the frame.  \nThe largest smoothed discontinuity in that profile is taken as the fill boundary — nearer side filled, farther side empty — and fill percentage is the filled row fraction; a frame with no qualifying jump reads as effectively full.  \nFor PipeGen benchmarking, it adds a dense metric-depth workload whose output is a derived scalar rather than boxes or masks, and it is a heuristic rather than a calibrated volumetric measurement.\n\n`ConveyorBeltMonitoring` runs a YOLOv8 detector fine-tuned for conveyor lines (`abhiejit/package-conveyor-ggu-yolo2`) over four classes: bag, box, carton, and conveyor.  \nInput is `images[1,3,640,640]` RGB letterboxed to 640 with grey padding and scaled by 1/255; output `output0[1,8,8400]` is raw 4-box plus 4-class and needs the usual transpose, confidence filter, and NMS.  \nWithin the PipeGen benchmark collection, it contributes a logistics-domain detection workload driven entirely by the contract embedded in the ONNX metadata.\n\n`CustomerDwellTime` measures how long each individual shopper stays inside a zone, combining the YOLO11s person detector, a from-scratch SORT-style tracker (IOU + Hungarian matching), and a polygon zone from `--zone-file`.  \nDwell is the cumulative seconds a track's foot-point spends inside the zone, converted from frame counts using the source fps, so it needs a video or an ordered directory of frames rather than a single image.  \nFor PipeGen benchmarking, it adds a detect-track-and-clock pipeline where the answer only exists across frames, with no cross-session re-identification once a track is lost.\n\n`CustomerHeatmaps` builds a retail foot-traffic heatmap by accumulating a small Gaussian blob at each detected person's foot-point into a running 2D density map over every frame of a video.  \nThe accumulator is normalized, colorized with the JET colormap, and alpha-blended over a representative frame, so the output is a single composited image rather than per-frame annotations.  \nWithin the PipeGen benchmark collection, it contributes a spatial-accumulation workload that reduces an entire video to one aggregate visualization.\n\n`DeepLabV3-Plus-MobileNet-onnx` appears to center on semantic segmentation using a DeepLabV3+ architecture with a MobileNet backbone exported to ONNX.  \nIt is well suited for benchmarking lightweight vision inference pipelines where accuracy and deployment efficiency both matter.  \nIn this collection, it offers a focused example of image segmentation, ONNX model handling, and practical inference-oriented project structure.\n\n`EfficientNet` looks like an image classification repository built around the EfficientNet ONNX model for compact and efficient inference.  \nIt likely provides a simple application entry point, model download flow, and label mapping for running classification on input images.  \nWithin the PipeGen benchmark, it contributes a lightweight classification workload that is useful for testing straightforward model loading and prediction pipelines.\n\n`EmptyShelfDetection` locates out-of-stock gaps on retail shelves with `wiwiewei18/smart-shelf-tracker`, a single-class YOLO11n whose confidence is badly miscalibrated by its 497-image training set.  \nIt therefore runs at a deliberately very low confidence threshold and suppresses the resulting noise with two filters: drop boxes centred in the bottom `floor_frac` of the frame, and drop boxes below `min_area_frac` of the image area.  \nFor PipeGen benchmarking, it is a useful example of a detector whose usable operating point sits far from the conventional 0.25-0.5 default.\n\n`Facebook-RTDETR` appears to be an object detection repository based on the RT-DETR model family, likely adapted for ONNX inference and practical deployment.  \nIt seems suited for benchmarking transformer-style real-time detection pipelines that differ from YOLO-based architectures in both model design and runtime behavior.  \nIn this benchmark set, it adds another modern detection workload with pretrained model downloads, application-level inference, and visual output generation.\n\n`FaceMaskDetection` classifies faces as with_mask, without_mask, or mask_weared_incorrect using `spacewalk01/yolov5-face-mask-detection`, a YOLOv5s trained on the classic 853-image Kaggle mask dataset.  \nIt is the one repository here on the classic YOLOv5 head convention — `output0[1,25200,8]` with a separate objectness column, so final confidence is objectness times class score rather than class score alone.  \nThe checkpoint predates the unified `ultralytics` package and will not unpickle through it, so `model/download.sh` exports it with the original yolov5 repo's own `export.py`.\n\n`Fast-SCNN` looks like a semantic segmentation repository centered on the Fast-SCNN architecture for efficient scene parsing.  \nIt likely targets lightweight segmentation use cases where real-time or edge-friendly inference is important, especially for road scenes or general pixel-wise labeling tasks.  \nFor PipeGen benchmarking, it contributes another segmentation-focused pipeline with a simpler application flow and an emphasis on speed-oriented deployment.\n\n`LoiteringDetection` alerts on continuous presence rather than presence itself, pairing the YOLO11s person detector with a SORT-style tracker and the named polygon zones of `RestrictedAreaMonitoring`.  \nEach track carries a session clock over consecutive in-zone frames that resets the moment it leaves, so someone who walks away and comes back starts a fresh visit instead of continuing the old one; `--loiter-seconds` defaults to 30.  \nWithin the PipeGen benchmark collection, it sits between the harmless-zone dwell metric and the always-alert restricted zone, and it needs a video for a real time-threshold reading.\n\n`Mask2Former-Instance-Segmentation` appears to be an instance segmentation repository built around the Mask2Former model for mask-level scene understanding.  \nIt likely supports label-aware segmentation of individual objects, making it useful for benchmarking richer outputs than plain bounding-box detection.  \nWithin the PipeGen benchmark suite, it adds a modern transformer-based segmentation workload with model downloads, application inference, and mask generation behavior.\n\n`multi-model-perception-dashboard` is a self-contained four-model perception stack that runs YOLOv8 object detection, YOLO11 instance segmentation, 2D PAF pose estimation, and MiDaS monocular depth in parallel on a single webcam or video source, then composites the outputs into a labeled 2x2 dashboard with an FPS and per-model latency HUD.  \nInference is fanned out across a `ThreadPoolExecutor(4)` so all four ONNX models execute concurrently per frame, and the result can be displayed live, recorded to a video file, or both — with an included `smoke_test.py` that exercises the same composite path on synthetic frames headlessly.  \nWithin the PipeGen benchmark collection, it stands out as the most pipeline-orchestration-heavy entry: it stresses parallel multi-model scheduling, output fusion, and HUD compositing in a way that single-task repositories do not.\n\n`ONNX-MiDaS-Depth-Estimation` is a depth estimation repository built around the MiDaS model running through ONNX Runtime for efficient inference.  \nIt seems intended for processing images, video, or webcam streams to generate monocular depth maps, which makes it a useful example of dense prediction beyond classification or detection.  \nWithin the PipeGen benchmark, it contributes a depth-focused workload with preprocessing, model execution, and visualization steps.\n\n`ONNX-TopFormer-Semantic-Segmentation` looks like a semantic segmentation repository using the TopFormer architecture in ONNX format.  \nIt appears aimed at efficient dense scene parsing, likely with webcam or image inference paths that emphasize practical deployment and lightweight segmentation performance.  \nFor PipeGen benchmarking, it adds another segmentation pipeline with a distinct model family, ONNX runtime flow, and structured pixel-level prediction output.\n\n`onnx-Ultra-Fast-Lane-Detection-Inference` is a lane detection repository using an ONNX version of the Ultra-Fast Lane Detection model.  \nIt appears aimed at detecting road lanes from driving imagery or video, making it especially relevant for real-time transportation and ADAS-style scenarios.  \nFor PipeGen benchmarking, it adds a specialized structured-vision task with temporal or road-scene inference patterns that differ from generic detection and segmentation projects.\n\n`ONNX-Unidepth-Monocular-Metric-Depth-Estimation` appears to focus on metric monocular depth estimation using the UniDepth model in ONNX format.  \nIt likely goes beyond relative depth by targeting scale-aware predictions from a single image, making it especially relevant for applications that need more physically meaningful scene geometry.  \nFor PipeGen benchmarking, it adds another dense prediction workflow with modern ONNX deployment patterns and a different depth-estimation objective than MiDaS or stereo-based models.\n\n`ONNX-YOLOv8-Object-Detection` is an object detection project that uses YOLOv8 models exported to ONNX for streamlined deployment.  \nIt likely provides scripts for loading models, running inference on images or video, and drawing detections in a simple application-ready format.  \nFor benchmarking PipeGen, it serves as a representative detection repository with common modern CV patterns, fast inference expectations, and deployment-friendly model packaging.\n\n`Pose_Estimation` is a human pose estimation repository built around an ONNX model with keypoint and part-affinity-field decoding for multi-person skeletons.  \nIt supports running inference on images, videos, GIFs, or a live webcam stream, drawing limb connections and keypoints directly onto the output frames.  \nWithin the PipeGen benchmark collection, it adds a structured keypoint-prediction workload that differs from classification, detection, segmentation, and depth pipelines.\n\n`ppe-kit` detects personal protective equipment with `Tanishjain9/yolov8n-ppe-detection-6classes`, a YOLOv8n covering gloves, vest, goggles, helmet, mask, and safety_shoe at roughly 0.81 mAP@50.  \nInput is `images[1,3,640,640]` RGB letterboxed and scaled by 1/255; output `output0[1,10,8400]` is raw 4-box plus 6-class and needs transpose, confidence filter, and NMS.  \nFor PipeGen benchmarking, it contributes a compact edge-oriented safety-compliance detector, and its own README carries the full per-class metrics and dataset breakdown.\n\n`QueueLengthMonitoring` counts how many people stand inside a configurable queue polygon, filtering the YOLO11s COCO detector down to the person class.  \nQueue length here is the in-zone headcount that feeds an estimated-wait-time calculation; it does not infer queue order or fit a physical line shape, so a serpentine stanchion layout has to be described through `--zone-file`.  \nWithin the PipeGen benchmark collection, it is the simplest of the zone-rule retail workloads and a useful baseline against the dwell-time and checkout variants.\n\n`realsense_yolo_depth` is a live Intel RealSense + YOLOv8 fusion pipeline that grabs aligned color and Z16 depth frames from the camera, runs YOLOv8 ONNX object detection on the color image, and labels each detection box with the median metric depth sampled at its centre.  \nIt also overlays device metadata (name, serial, USB, firmware) and live accelerometer/gyroscope readings, reusing the YOLOv8 ONNX detector class from `ONNX-YOLOv8-Object-Detection` so only the depth-fusion and overlay logic are new.  \nWithin the PipeGen benchmark collection, it contributes a sensor-driven multi-modal pipeline that couples a RealSense source with neural detection and metric depth fusion, making it a good probe for orchestrating real hardware streams alongside ONNX inference.\n\n`ResNet-Image-Classification` looks like a straightforward image classification repository using a ResNet ONNX model and standard label mapping.  \nIt likely offers a compact inference entry point for classifying input images, making it a simple but useful benchmark for baseline computer vision pipelines.  \nWithin the PipeGen benchmark collection, it adds a classic classification workload that is easy to compare against lightweight or more modern architectures such as EfficientNet.\n\n`ResNet-Object-Detection` appears to be an object detection repository using a ResNet-based detection model, likely tailored for traffic or scene-specific inference.  \nIt seems well suited for benchmarking practical detection pipelines that rely on classic backbone-driven models rather than only the newest detector families.  \nFor PipeGen benchmarking, it contributes another detection example with pretrained model setup, application inference, and labeled visual outputs in a deployment-oriented structure.\n\n`RestrictedAreaMonitoring` treats any presence inside a marked danger zone as a security event, running the YOLO11s person detector, a SORT-style tracker, and a polygon membership test on every frame.  \nEach track resolves to CLEAR, IN ZONE, or INTRUSION! — the last after `--alert-frames` consecutive in-zone frames (default 2, enough to absorb a missed detection at the zone boundary) and reported with the seconds spent inside.  \nOmitting `--zone-file` makes the whole frame restricted, which suits a camera whose entire field of view is off-limits, such as a locked server room.\n\n`ShelfOccupancy` reports a continuous shelf fill percentage from `foduucom/product-detection-in-shelf-yolov8`, a two-class detector over empty and product.  \nOccupancy is the product box area divided by the combined product-plus-empty area, so it measures fill only across the shelf regions the model actually classified, not a segmentation of the whole surface.  \nThe model was trained on retail-cooler imagery and performs best on fridge and cooler shelves; its image loader is EXIF-aware because phone photos are commonly stored sideways.\n\n`SmokeDetection` runs `rabahdev/fire-smoke-yolov8n`, a YOLOv8n fine-tuned on the real-photograph D-Fire dataset over two classes, smoke and fire, with both surfaced since either is safety-critical.  \nA SORT-style tracker gives each detected region a persistent-ish ID so that `--alert-frames` consecutive detections are required before an alert fires, guarding against a single-frame false positive on a diffusing plume.  \nWithin the PipeGen benchmark collection, it contributes an environmental-hazard detection workload validated against both positive and clean-negative real imagery.\n\n`TheftDetection` uses `Nour190/shoplifting-yolo`, a YOLOv8s-Pose model with two classes, normal and shoplifting, tracked across frames with the same SORT-style IOU + Hungarian tracker used elsewhere in this collection.  \nAn alert requires `--alert-frames` consecutive shoplifting classifications on the same track, so per-frame classifier flicker does not fire it.  \nFor PipeGen benchmarking, it adds a pose-backbone behaviour classifier whose verdict is only meaningful as a run of frames rather than as a single detection.\n\n`UnsafeBehaviorDetection` detects smoking with `Enos-123/smoking-detection`, a single-class YOLO11m trained to find cigarettes.  \nInput is `images[1,3,640,640]` RGB letterboxed and scaled by 1/255; output `output0[1,5,8400]` is raw 4-box plus one class score and needs transpose, confidence filter, and NMS — every surviving detection is by definition the unsafe behaviour.  \nWithin the PipeGen benchmark collection, it contributes a small-object detection workload where the target occupies very few pixels relative to the person holding it.\n\n`VehicleDetection` runs Ultralytics' official COCO-pretrained YOLO11s through ONNX Runtime and counts the vehicle classes — bicycle, car, motorcycle, bus, train, truck, and boat.  \nEverything else in COCO-80 is still detected and drawn as a completeness check, but only the vehicle classes feed the count banner.  \nFor PipeGen benchmarking, it is the plain-detection baseline of this use-case group, sharing its `output0[1,84,8400]` decode contract with most of the retail and surveillance entries.\n\n`WorkerFallDetection` runs a YOLO11s-Pose ONNX export in the marcoslucianops DeepStream-Yolo-Pose layout, where the head output is transposed in-graph to `[1,8400,56]` — 4 box, 1 confidence, and 17 COCO keypoints of (x, y, visibility).  \nBox decode, objectness sigmoid, and keypoint pixel-space decode are all baked in by the Ultralytics Pose head at export time, so only single-class NMS is left for the application to do.  \nFalls are estimated from body orientation — a wide, short box plus a near-horizontal shoulder-to-hip line — which is a deliberately approximate single-frame heuristic, not a trained fall classifier.\n\n`yolo11n-instance-segmentation` appears to focus on instance segmentation using a compact YOLO11 segmentation model exported to ONNX.  \nIt likely supports running inference on images or video while producing both object-level detections and segmentation masks in a deployment-friendly workflow.  \nWithin the PipeGen benchmark suite, it adds a strong example of mask-based scene understanding that combines detection and segmentation in a single modern vision pipeline.\n\n`yolov8-multi-camera-input` is an object detection repository that runs a YOLOv8 ONNX model across six synchronized camera streams (front, front-left, front-right, back, back-left, back-right) in a single batched inference pass.  \nIt is well suited for autonomous-driving-style surround-view perception, where multiple video inputs must be processed together and annotated with detections in real time.  \nWithin the PipeGen benchmark collection, it contributes a multi-input batched detection workload that stresses pipeline orchestration across parallel video sources rather than a single image or video stream.\n\n`yolov8_pose_parallel` runs YOLOv8n object detection and YOLO11n-pose keypoint estimation concurrently on each frame via a `ThreadPoolExecutor(2)`, then overlays the detection boxes and the 17-keypoint COCO skeletons onto the same image with an FPS readout.  \nThe YOLOv8 wrapper reuses the `YOLOv8` class from `ONNX-YOLOv8-Object-Detection` (added to `sys.path`), while the pose head is a self-contained letterbox-and-decode port of the DeepStream `pose_render_cpu` reference, supporting webcam, video file, and headless `--output` recording paths.  \nWithin the PipeGen benchmark collection, it adds a focused two-model parallel pipeline that pairs detection with pose in a single per-frame fan-out, complementing the broader four-model `multi-model-perception-dashboard` with a smaller, more targeted concurrency example.\n",
+  "benchmark_subfolder": null,
+  "chat_history": [
+    {
+      "content": "I need a real-time helmet compliance detection pipeline for two-wheeler riders in traffic video. Input is a video file. Detect riders and check whether each one is wearing a helmet. Use a TensorRT FP16 engine. Output a JSON event log with rider ID, helmet or no-helmet, and timestamp, plus a saved annotated video.",
+      "role": "user"
+    },
+    {
+      "content": "I understood you want rider detection, helmet-status checks with rider IDs, and a timestamped JSON event log alongside an annotated video. I recorded the TensorRT FP16 requirement; the host can collect the video path and output destinations.\n\nCheck the inputs below and confirm them.\n\nNo method kept on rider tracking: a tracker's method is recorded only when you name one.",
+      "role": "assistant"
+    },
+    {
+      "content": "Inputs: input1 · traffic video · Video file · video.mp4",
+      "role": "user"
+    },
+    {
+      "content": "Inputs confirmed: 1.\n\nOutputs taken from your description: out1 · metadata_file · url /home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/output/metadata.json; out2 · saved_video · url /home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/output/output.mp4. Say **review outputs** to change them on a card.\n\nI have the video and outputs noted; please answer these scene and privacy questions.\n\nA few questions about the scene and camera below: Continue applies what the card shows, Skip adds no step. Skip still records what the footage shows on its own: input1 moves.",
+      "role": "assistant"
+    },
+    {
+      "content": "Scene and camera: Does this camera move? Pans or moves · Hide before saving or sending? Nothing · How big are the targets? Not sure",
+      "role": "user"
+    },
+    {
+      "content": "Draft v1: **1 input(s)** → **helmet compliance classification, rider detection, rider tracking** → **metadata_file, saved_video**. Correct it here, or press **Finalize flow**.",
+      "role": "assistant"
+    },
+    {
+      "content": "finalize the flow",
+      "role": "user"
+    },
+    {
+      "content": "Flow locked. Now the details, one task at a time: 3 of 3 to go.\n\nThe rider-detection target and input are clear. You can optionally set a detection confidence threshold; otherwise, the default is 0.5.",
+      "role": "assistant"
+    },
+    {
+      "content": "rider detection on input1 (traffic video): kept defaults",
+      "role": "user"
+    },
+    {
+      "content": "Kept the defaults for this task.\n\n**rider detection on input1 (traffic video)** done. Next: **helmet compliance classification on input1 (traffic video)**.\n\nThe task is to classify each detected rider as wearing a helmet or not. You can optionally set a minimum classification confidence; otherwise, the default is 0.5.",
+      "role": "assistant"
+    },
+    {
+      "content": "helmet compliance classification on input1 (traffic video): kept defaults",
+      "role": "user"
+    },
+    {
+      "content": "Kept the defaults for this task.\n\n**helmet compliance classification on input1 (traffic video)** done. Next: **rider tracking on input1 (traffic video)**.\n\nRider tracking is settled as IoU-based association across frames to assign IDs for the event log.\n\nAll tasks are detailed. This is the final flow with your conditions; continue to sources, or change something.\n\nNo method kept on rider tracking: a tracker's method is recorded only when you name one.",
+      "role": "assistant"
+    },
+    {
+      "content": "continue to sources",
+      "role": "user"
+    },
+    {
+      "content": "Code for rider detection on input1 (traffic video) · helmet compliance classification on input1 (traffic video): choose a local repository folder or model file, or the catalog, for each task below, or paste a path here.",
+      "role": "assistant"
+    },
+    {
+      "content": "rider detection on input1 (traffic video) → local /home/lenovo/pipegen-src/helmet_v2.onnx; helmet compliance classification on input1 (traffic video) → catalog · precision FP16",
+      "role": "user"
+    },
+    {
+      "content": "- **src1** · pipegen-src → rider detection on input1 (traffic video) · `run.py` · `helmet_v2.onnx` (scanned)\n\nCatalog matches for helmet compliance classification on input1 (traffic video). Suggested: **A** covers all 1 task(s). Tick the ones to use, or paste a local path.",
+      "role": "assistant"
+    },
+    {
+      "content": "/home/lenovo/pipegen-src/helmet_v2.onnx",
+      "role": "user"
+    },
+    {
+      "content": "- **src2** · pipegen-src → helmet compliance classification on input1 (traffic video) · `run.py` · `helmet_v2.onnx` (scan cached)\n\n1 of 19 checks need a fix:\n- ✗ src1 does not support two-wheeler riders (The selected model's metadata names only Helmet, LP, and No helmet. run.py only prints an entry-point message and has no inference or rider decoder.) for rider detection@input1.\n\nPaste a repository that supports those targets, run a deep search for one, or say \"use it anyway\" to keep this one.",
+      "role": "assistant"
+    },
+    {
+      "content": "use it anyway",
+      "role": "user"
+    },
+    {
+      "content": "All 18 requirement checks pass.\n- **src1** pipegen-src → rider detection on input1 (traffic video)\n- **src2** pipegen-src → helmet compliance classification on input1 (traffic video)\n\nPress **Generate PIR** to build the pipeline graph. You can still change anything here first.",
+      "role": "assistant"
+    }
+  ],
+  "chat_name": "Two-Wheeler Helmet Compliance Detection",
+  "checks": {
+    "failed": 0,
+    "groups": [
+      {
+        "failed": 0,
+        "name": "Inputs",
+        "passed": 1,
+        "warned": 0
+      },
+      {
+        "failed": 0,
+        "name": "Tasks",
+        "passed": 4,
+        "warned": 0
+      },
+      {
+        "failed": 0,
+        "name": "Sources",
+        "passed": 9,
+        "warned": 0
+      },
+      {
+        "failed": 0,
+        "name": "Outputs",
+        "passed": 2,
+        "warned": 0
+      },
+      {
+        "failed": 0,
+        "name": "Handoff",
+        "passed": 2,
+        "warned": 0
+      }
+    ],
+    "passed": true,
+    "results": [
+      {
+        "fix": null,
+        "group": "Inputs",
+        "id": "input.input1",
+        "message": "input1: /home/lenovo/videos/video.mp4 (1920x1080 · 30.0)",
+        "name": "input1 file",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Sources",
+        "id": "classes.src2.helmet compliance classification@input1",
+        "message": "src2 supports helmet → Helmet; no helmet → No helmet for helmet compliance classification@input1.",
+        "name": "helmet compliance classification@input1 capabilities",
+        "status": "pass"
+      },
+      {
+        "fix": "sources",
+        "group": "Tasks",
+        "id": "tasks.covered",
+        "message": "All tasks are covered.",
+        "name": "every task has a source",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Tasks",
+        "id": "task.1.input",
+        "message": "rider detection runs on input1",
+        "name": "rider detection input",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Tasks",
+        "id": "task.2.input",
+        "message": "helmet compliance classification runs on input1",
+        "name": "helmet compliance classification input",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Tasks",
+        "id": "task.3.input",
+        "message": "rider tracking runs on input1",
+        "name": "rider tracking input",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Sources",
+        "id": "source.src1.root",
+        "message": "src1: /home/lenovo/pipegen-src",
+        "name": "src1 folder",
+        "status": "pass"
+      },
+      {
+        "fix": "reanalyse",
+        "group": "Sources",
+        "id": "source.src1.entry",
+        "message": "src1: `python run.py /home/lenovo/videos/video.mp4` → run.py",
+        "name": "src1 run command",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Sources",
+        "id": "source.src1.scope",
+        "message": "src1: 1 of 2 model files are used; helmet_v1.onnx is not needed for these tasks.",
+        "name": "src1 models in scope",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Sources",
+        "id": "source.src1.model.helmet_v2.onnx",
+        "message": "src1: helmet_v2.onnx reads fine.",
+        "name": "src1 model helmet_v2.onnx",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Sources",
+        "id": "source.src2.root",
+        "message": "src2: /home/lenovo/pipegen-src",
+        "name": "src2 folder",
+        "status": "pass"
+      },
+      {
+        "fix": "reanalyse",
+        "group": "Sources",
+        "id": "source.src2.entry",
+        "message": "src2: `python run.py /home/lenovo/videos/video.mp4` → run.py",
+        "name": "src2 run command",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Sources",
+        "id": "source.src2.scope",
+        "message": "src2: 1 of 2 model files are used; helmet_v1.onnx is not needed for these tasks.",
+        "name": "src2 models in scope",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Sources",
+        "id": "source.src2.model.helmet_v2.onnx",
+        "message": "src2: helmet_v2.onnx reads fine.",
+        "name": "src2 model helmet_v2.onnx",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Outputs",
+        "id": "output.out1.destination",
+        "message": "out1: metadata_file → /home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/output/metadata.json",
+        "name": "out1 destination",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Outputs",
+        "id": "output.out2.destination",
+        "message": "out2: saved_video → /home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/output/output.mp4",
+        "name": "out2 destination",
+        "status": "pass"
+      },
+      {
+        "fix": "ask",
+        "group": "Handoff",
+        "id": "contract",
+        "message": "2 task(s), 2 source(s), 1 model(s).",
+        "name": "handoff contract",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Handoff",
+        "id": "pir.readiness",
+        "message": "The PIR stage can start from the captured evidence.",
+        "name": "PIR readiness",
+        "status": "pass"
+      }
+    ],
+    "version": 2,
+    "warned": 0
+  },
+  "class_waivers": [
+    "classes.src1.rider detection@input1"
+  ],
+  "clone_base_path": "/home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05",
+  "clone_path": "/home/lenovo/pipegen-src",
+  "delivered_references": {},
+  "flow_draft": {
+    "connections": [
+      {
+        "from": "input1",
+        "to": "task:rider detection@input1"
+      },
+      {
+        "from": "input1",
+        "to": "task:helmet compliance classification@input1"
+      },
+      {
+        "from": "task:rider detection@input1",
+        "to": "task:rider tracking@input1"
+      },
+      {
+        "from": "task:helmet compliance classification@input1",
+        "to": "out1"
+      },
+      {
+        "from": "task:rider tracking@input1",
+        "to": "out1"
+      },
+      {
+        "from": "task:helmet compliance classification@input1",
+        "to": "out2"
+      },
+      {
+        "from": "task:rider tracking@input1",
+        "to": "out2"
+      }
+    ],
+    "finalized": true,
+    "label": "Final flow · with your conditions",
+    "nodes": [
+      {
+        "id": "input1",
+        "kind": "input",
+        "name": "input1 · traffic video",
+        "short_description": "video file · video.mp4 · 1920x1080"
+      },
+      {
+        "id": "task:rider detection@input1",
+        "kind": "task",
+        "name": "rider detection",
+        "short_description": "targets: two-wheeler riders · Detect riders in traffic video."
+      },
+      {
+        "id": "task:helmet compliance classification@input1",
+        "kind": "task",
+        "name": "helmet compliance classification",
+        "short_description": "targets: helmet, no helmet · For each detected rider, determine whether they are wearing a helmet."
+      },
+      {
+        "id": "task:rider tracking@input1",
+        "kind": "task",
+        "name": "rider tracking",
+        "short_description": "targets: riders · Assign rider IDs for the event log. Track riders across frames using IoU-based association."
+      },
+      {
+        "id": "out1",
+        "kind": "output",
+        "name": "out1 · metadata_file",
+        "short_description": "metadata_file · url /home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/output/metadata.json"
+      },
+      {
+        "id": "out2",
+        "kind": "output",
+        "name": "out2 · saved_video",
+        "short_description": "saved_video · url /home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/output/output.mp4"
+      }
+    ],
+    "version": 2
+  },
+  "form_seq": 6,
+  "mode": null,
+  "pending_form": {},
+  "pending_source": {},
+  "phase": "complete",
+  "pipeline_information": {
+    "model_paths": [
+      "/home/lenovo/pipegen-src/helmet_v2.onnx"
+    ],
+    "pipeline_command": "python run.py /home/lenovo/videos/video.mp4",
+    "project_path": "/home/lenovo/pipegen-src"
+  },
+  "pipeline_requirements": {
+    "extras": {
+      "compile": {
+        "engine": "TensorRT",
+        "precision": "fp16"
+      },
+      "input_roles": {
+        "input1": "traffic video"
+      },
+      "scene_step": {
+        "advice": [],
+        "answered": {
+          "motion__input1": "moves",
+          "privacy__input1": [
+            "nothing"
+          ],
+          "size__input1": "not_sure"
+        },
+        "declined": [],
+        "inputs": {
+          "input1": {
+            "basis": {
+              "asks": [
+                "privacy"
+              ],
+              "kind": "video file",
+              "mtime": 1792236786.4361541,
+              "size": 19303346,
+              "tasks": [
+                "rider detection@input1",
+                "helmet compliance classification@input1"
+              ],
+              "url": "/home/lenovo/videos/video.mp4"
+            },
+            "cues": [
+              "camera_moving"
+            ],
+            "duty": {
+              "colour_cast": 0.0,
+              "dock_daylight": 0.0,
+              "haze": 0.0,
+              "low_light_after_dark": 0.0
+            },
+            "evidence": [
+              "Everything in view moves between frames in 91% of the moments looked at, so the camera moves."
+            ],
+            "footage": {
+              "chroma_offset": 0.012,
+              "clipped_fraction": 0.001,
+              "dark_fraction": 0.064,
+              "fps": 30.0,
+              "frames": 340,
+              "height": 1080,
+              "mean_chroma": 6.8,
+              "motion": "moving",
+              "noise": 0.52,
+              "p50": 0.408,
+              "partial": true,
+              "rms_contrast": 0.232,
+              "rules": [
+                "camera_moving"
+              ],
+              "samples": 11,
+              "source": "video file",
+              "suggest": [
+                "camera_moving"
+              ],
+              "width": 1920
+            },
+            "said": {},
+            "skipped": false
+          }
+        },
+        "ledger": [],
+        "needs": [],
+        "privacy_source": [],
+        "rules": {
+          "camera_angled": [],
+          "camera_fixed": [],
+          "camera_moving": [
+            "input1"
+          ],
+          "camera_shakes": [],
+          "motion_unknown": [],
+          "no_cloud": [],
+          "privacy": [],
+          "small_objects": [],
+          "store_events_only": []
+        },
+        "version": 1
+      }
+    },
+    "inputs": [
+      {
+        "data_kind": [
+          "frames"
+        ],
+        "fps": 30.0,
+        "id": "input1",
+        "resolution": "1920x1080",
+        "role": "traffic video",
+        "type": "video file",
+        "url": "/home/lenovo/videos/video.mp4"
+      }
+    ],
+    "needs_model": null,
+    "outputs": [
+      {
+        "id": "out1",
+        "type": "metadata_file",
+        "url": "/home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/output/metadata.json"
+      },
+      {
+        "id": "out2",
+        "type": "saved_video",
+        "url": "/home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/output/output.mp4"
+      }
+    ],
+    "parallel": false,
+    "special_algorithms": [
+      {
+        "applies_to": [
+          "rider detection@input1"
+        ],
+        "category": "tracking",
+        "confirmed": true,
+        "description": "Assign rider IDs for the event log. Track riders across frames using IoU-based association.",
+        "name": "rider tracking",
+        "reference_path": null
+      }
+    ],
+    "target_classes": [],
+    "task_kind": null,
+    "tasks": [
+      {
+        "details": "Detect riders in traffic video.",
+        "for_input": "input1",
+        "needs_model": true,
+        "target_classes": [
+          "two-wheeler riders"
+        ],
+        "type": "rider detection"
+      },
+      {
+        "details": "For each detected rider, determine whether they are wearing a helmet.",
+        "for_input": "input1",
+        "needs_model": true,
+        "target_classes": [
+          "helmet",
+          "no helmet"
+        ],
+        "type": "helmet compliance classification"
+      },
+      {
+        "derives_from": [
+          "rider detection@input1"
+        ],
+        "details": "Assign rider IDs for the event log. Track riders across frames using IoU-based association.",
+        "for_input": "input1",
+        "needs_model": false,
+        "target_classes": [
+          "riders"
+        ],
+        "type": "rider tracking"
+      }
+    ],
+    "user_intent_summary": "Detect two-wheeler riders in traffic video, check each rider's helmet compliance, and produce a timestamped JSON event log and annotated video."
+  },
+  "repo_sources": [
+    {
+      "analysis_summaries": [
+        "The repository contains a run.py entry script and two ONNX model files. The selected helmet_v2.onnx model is a 640×640 detector whose metadata lists Helmet, LP, and No helmet classes. However, run.py only prints a message: it does not load the model, preprocess video, perform inference, or decode detections. The repository therefore does not provide a working video pipeline or support detecting two-wheeler riders.",
+        "[read_file]: run.py: print(\"helmet-guard: ONNX model entry point\")\n"
+      ],
+      "architecture": {
+        "connections": [
+          {
+            "from": "n1",
+            "to": "n2"
+          },
+          {
+            "from": "n2",
+            "to": "n4"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n1",
+            "name": "Traffic video",
+            "short_description": "Requested video file: /home/lenovo/videos/video.mp4."
+          },
+          {
+            "id": "n2",
+            "name": "run.py",
+            "short_description": "Entry script; prints a message and does not read the video or run inference."
+          },
+          {
+            "id": "n3",
+            "name": "helmet_v2.onnx",
+            "short_description": "Detached ONNX detector asset with Helmet, LP, and No helmet classes."
+          },
+          {
+            "id": "n4",
+            "name": "Console message",
+            "short_description": "The script's only output: helmet-guard: ONNX model entry point."
+          }
+        ]
+      },
+      "class_coverage": {
+        "rider detection@input1": {
+          "targets": [
+            {
+              "basis": "The selected model's metadata names only Helmet, LP, and No helmet. run.py only prints an entry-point message and has no inference or rider decoder.",
+              "kind": "labels",
+              "labels": [],
+              "model_path": "/home/lenovo/pipegen-src/helmet_v2.onnx",
+              "output": "Detection tensor output0 [1, 7, 8400]; model metadata lists Helmet, LP, and No helmet classes, with no rider class.",
+              "requested": "two-wheeler riders",
+              "status": "unsupported"
+            }
+          ],
+          "version": 1
+        }
+      },
+      "class_coverage_signature": "603c583fe7eb29a4707344ba",
+      "covers_tasks": [
+        "rider detection@input1"
+      ],
+      "id": "src1",
+      "label_space": {
+        "count": 3,
+        "labels": [
+          "Helmet",
+          "LP",
+          "No helmet"
+        ],
+        "source": "helmet_v1.onnx metadata 'names'; helmet_v2.onnx metadata 'names'",
+        "version": 3
+      },
+      "model_paths": [
+        "/home/lenovo/pipegen-src/helmet_v2.onnx"
+      ],
+      "model_roles": [
+        {
+          "for_task": "rider detection@input1",
+          "path": "/home/lenovo/pipegen-src/helmet_v2.onnx",
+          "role": "Selected detector; its metadata identifies Helmet, LP, and No helmet classes, not two-wheeler riders."
+        }
+      ],
+      "pipeline_command": "python run.py /home/lenovo/videos/video.mp4",
+      "project_path": "/home/lenovo/pipegen-src",
+      "scan_hash": "1a532675bd1aa349570a8d73bfcfc1e87f10dc19019ed6cda265cac59e4f521d",
+      "selected_models": [
+        "/home/lenovo/pipegen-src/helmet_v2.onnx"
+      ],
+      "source": "local",
+      "subfolder": null,
+      "unused_models": [
+        "/home/lenovo/pipegen-src/helmet_v1.onnx"
+      ]
+    },
+    {
+      "analysis_summaries": [
+        "The repository contains an ONNX helmet-related object detector and a run.py entry script. The model expects 640×640 float32 image tensors and is labeled as an Ultralytics detection model with Helmet, LP, and No helmet classes. Its output is a raw detection tensor, and the repository provides no video-frame preprocessing, output decoder, or rider-to-detection association. The entry script only prints a message, so the supplied command does not perform inference on the video.",
+        "[read_file]: run.py: print(\"helmet-guard: ONNX model entry point\")\n"
+      ],
+      "architecture": {
+        "connections": [
+          {
+            "from": "n1",
+            "to": "n2"
+          },
+          {
+            "from": "n3",
+            "to": "n4"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n1",
+            "name": "Video file",
+            "short_description": "Requested traffic-video input."
+          },
+          {
+            "id": "n2",
+            "name": "run.py",
+            "short_description": "Existing entry script; it only prints a message and does not process the video."
+          },
+          {
+            "id": "n3",
+            "name": "helmet_v2.onnx",
+            "short_description": "Detection model expecting float32 images shaped [1, 3, 640, 640]."
+          },
+          {
+            "id": "n4",
+            "name": "Detection output",
+            "short_description": "Model output0 is [1, 7, 8400], with metadata classes Helmet, LP, and No helmet; no decoder is included."
+          }
+        ]
+      },
+      "class_coverage": {
+        "helmet compliance classification@input1": {
+          "targets": [
+            {
+              "basis": "Selected model metadata lists Helmet as a detection class.",
+              "kind": "labels",
+              "labels": [
+                "Helmet"
+              ],
+              "model_path": "/home/lenovo/pipegen-src/helmet_v2.onnx",
+              "output": "ONNX output0 has shape [1, 7, 8400]; model metadata identifies a detection task with classes Helmet, LP, and No helmet. No repository decoder is present.",
+              "requested": "helmet",
+              "status": "supported"
+            },
+            {
+              "basis": "Selected model metadata lists No helmet as a detection class.",
+              "kind": "labels",
+              "labels": [
+                "No helmet"
+              ],
+              "model_path": "/home/lenovo/pipegen-src/helmet_v2.onnx",
+              "output": "ONNX output0 has shape [1, 7, 8400]; model metadata identifies a detection task with classes Helmet, LP, and No helmet. No repository decoder is present.",
+              "requested": "no helmet",
+              "status": "supported"
+            }
+          ],
+          "version": 1
+        }
+      },
+      "class_coverage_signature": "9baf7d89d4b894d3847ba0da",
+      "covers_tasks": [
+        "helmet compliance classification@input1"
+      ],
+      "id": "src2",
+      "label_space": {
+        "count": 3,
+        "labels": [
+          "Helmet",
+          "LP",
+          "No helmet"
+        ],
+        "source": "helmet_v1.onnx metadata 'names'; helmet_v2.onnx metadata 'names'",
+        "version": 3
+      },
+      "model_paths": [
+        "/home/lenovo/pipegen-src/helmet_v2.onnx"
+      ],
+      "model_roles": [
+        {
+          "for_task": "helmet compliance classification@input1",
+          "path": "/home/lenovo/pipegen-src/helmet_v2.onnx",
+          "role": "Detects the Helmet, LP, and No helmet classes; its Helmet and No helmet detections correspond to the requested complianc"
+        }
+      ],
+      "pipeline_command": "python run.py /home/lenovo/videos/video.mp4",
+      "project_path": "/home/lenovo/pipegen-src",
+      "scan_hash": "1a532675bd1aa349570a8d73bfcfc1e87f10dc19019ed6cda265cac59e4f521d",
+      "selected_models": [
+        "/home/lenovo/pipegen-src/helmet_v2.onnx"
+      ],
+      "source": "local",
+      "subfolder": null,
+      "unused_models": [
+        "/home/lenovo/pipegen-src/helmet_v1.onnx"
+      ]
+    }
+  ],
+  "req_stage": "complete",
+  "requirement_profile": {
+    "clarify": {},
+    "code": [],
+    "inputs": {
+      "input1": {}
+    },
+    "outputs": {
+      "out1": {},
+      "out2": {}
+    },
+    "tasks": {}
+  },
+  "scan_hits": [
+    {
+      "analysis_cached": false,
+      "cache_hit": false,
+      "hash": "1a532675bd1aa349570a8d73bfcfc1e87f10dc19019ed6cda265cac59e4f521d",
+      "source": "src1"
+    },
+    {
+      "analysis_cached": false,
+      "cache_hit": true,
+      "hash": "1a532675bd1aa349570a8d73bfcfc1e87f10dc19019ed6cda265cac59e4f521d",
+      "source": "src2"
+    }
+  ],
+  "source_strategy": "separate",
+  "task_checklist": {
+    "active": null,
+    "items": [
+      {
+        "id": 1,
+        "indices": [
+          0
+        ],
+        "keys": [
+          "rider detection@input1"
+        ],
+        "label": "rider detection on input1 (traffic video)",
+        "round": 1,
+        "status": "done",
+        "summary": "defaults kept"
+      },
+      {
+        "id": 2,
+        "indices": [
+          1
+        ],
+        "keys": [
+          "helmet compliance classification@input1"
+        ],
+        "label": "helmet compliance classification on input1 (traffic video)",
+        "round": 1,
+        "status": "done",
+        "summary": "defaults kept"
+      },
+      {
+        "id": 3,
+        "indices": [
+          2
+        ],
+        "keys": [
+          "rider tracking@input1"
+        ],
+        "label": "rider tracking on input1 (traffic video)",
+        "round": 0,
+        "status": "done",
+        "summary": "Track detected riders across frames with IoU-based association and assign IDs for the event log."
+      }
+    ],
+    "version": 4
+  },
+  "typed_on_cards": {
+    "10": [],
+    "14": [
+      "local",
+      "/home/lenovo/pipegen-src/helmet_v2.onnx"
+    ],
+    "2": [
+      "/home/lenovo/videos/video.mp4"
+    ],
+    "4": [],
+    "8": []
+  },
+  "understanding": {
+    "answered": {},
+    "asked": [
+      "What minimum confidence should a rider detection meet?",
+      "What minimum confidence should a helmet-compliance classification meet?"
+    ],
+    "defaulted": {
+      "inputs": {},
+      "outputs": {}
+    },
+    "deferred": [],
+    "input_count": 1,
+    "input_fields": [],
+    "notes": [
+      "turn 1: The user specified one video-file input; its path is not needed here because the host collects it on the input card.",
+      "turn 1: Rider IDs require tracking detected riders across frames, so tracking is recorded as a derived task.",
+      "turn 1: Helmet status is a separate model-based classification applied to detected riders.",
+      "turn 1: The JSON event log and annotated video are recorded as outputs; the host collects their destinations.",
+      "turn 1: TensorRT and FP16 were explicitly specified, so both are recorded as compilation constraints."
+    ],
+    "output_fields": [],
+    "question_turns": 0,
+    "taken": [
+      "outputs"
+    ]
+  }
+}

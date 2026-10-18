@@ -1,0 +1,34 @@
+# nvinfer_backport config — object detection
+# Custom parser (parse-bbox-func-name) turns the raw output tensor(s) into
+# NvDsInferObjectDetectionInfo boxes; nvinfer rescales them onto the frame and
+# nvdsosd renders the boxes + labels from labelfile-path.
+[property]
+gpu-id=0
+net-scale-factor=0.00392157
+model-color-format=0
+model-engine-file=/home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/model_stage/helmet_v2.fp16.plan
+infer-dims=3;640;640
+network-input-order=0
+batch-size=1
+network-mode=2
+process-mode=1
+network-type=0
+num-detected-classes=3
+interval=0
+maintain-aspect-ratio=1
+symmetric-padding=1
+output-blob-names=output0
+labelfile-path=/home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/pipeline/deepstream/labels/config_det_pgie_labels.txt
+custom-lib-path=/home/lenovo/.pipegen/aryantyagi9651/f70e8c94-ed7b-403d-9623-cfcb099f7a05/pipeline/deepstream/build/libconfig_det_pgie_parser.so
+parse-bbox-func-name=ParseConfigDetPgie
+cluster-mode=4
+output-tensor-meta=1
+gie-unique-id=1
+
+[class-attrs-all]
+pre-cluster-threshold=0.25
+nms-iou-threshold=0.7
+
+# Suppress class 1 (LP) — set threshold impossibly high
+[class-attrs-1]
+pre-cluster-threshold=1.1
